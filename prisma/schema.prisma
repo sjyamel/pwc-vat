@@ -1,0 +1,168 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mongodb"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id              String          @id @default(auto()) @map("_id") @db.ObjectId
+  email            String           @unique
+  password         String
+  name             String?
+  createdAt        DateTime         @default(now())
+  updatedAt        DateTime         @updatedAt
+  role             String
+  status           String           @default("ACTIVE")
+  profilePicture   String?
+  gender           String
+  phone            String?
+  organizationId   String?          @db.ObjectId
+  organization     Organization?    @relation(fields: [organizationId], references: [id])
+}
+
+model AuthToken {
+  id        String          @id @default(auto()) @map("_id") @db.ObjectId
+  token     String
+  type      String
+  email     String
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+}
+
+model Organization {
+  id         String   @id @default(auto()) @map("_id") @db.ObjectId
+  name       String
+  tin        String?  // Taxpayer Identification Number
+  rc_number  String?  // Registration Certificate Number
+  address    String?
+  phone      String?
+  email      String?
+  createdAt  DateTime @default(now())
+  
+  // Relations (Virtual in Prisma for Mongo)
+  invoices   Invoice[]
+  summaries  VatSummary[]
+  users      User[]
+}
+
+enum InvoiceType {
+  SALES
+  PURCHASE
+}
+
+enum InvoiceStatus {
+  DRAFT
+  PENDING
+  FISCALIZED
+  CANCELLED
+  REJECTED
+}
+
+enum VatCategory {
+  STANDARD
+  ZERO_RATED
+  EXEMPT
+}
+
+enum ClaimableStatus {
+  CLAIMABLE
+  PARTIALLY_CLAIMABLE
+  NOT_CLAIMABLE
+  REVIEW_REQUIRED
+}
+
+model Invoice {
+  id              String          @id @default(auto()) @map("_id") @db.ObjectId
+  organizationId  String          @db.ObjectId
+  organization    Organization    @relation(fields: [organizationId], references: [id])
+  
+  type            InvoiceType
+  invoiceNumber   String
+  netAmount       Float
+  vatAmount       Float
+  totalPayable    Float
+  currency        String          @default("NGN")
+
+  // Compliance & NRS Data
+  status          InvoiceStatus
+  irn             String?         @unique // Invoice Reference Number
+  qrCodeUrl       String?
+  fiscalizedAt    DateTime?       // The date that counts for tax periods
+
+  // VAT Specifics
+  vatCategory     String
+  claimableStatus ClaimableStatus
+  claimablePct    Float           @default(1.0)
+  rejectionReason      String?         // Explains non-claimability
+
+  // Line Items are often embedded in MongoDB for performance
+  items           InvoiceItem[]
+
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+}
+
+// Using type instead of model to embed items inside the Invoice document
+type InvoiceItem {
+  description String
+  quantity    Float
+  unitPrice   Float
+  vatCategory String
+  vatRate     Float           // e.g., 0.075
+}
+
+// ---------------------------------------------------------
+// --- VAT CALCULATOR SERVICE (Reporting Layer) ---
+// ---------------------------------------------------------
+
+model VatSummary {
+  id             String       @id @default(auto()) @map("_id") @db.ObjectId
+  organizationId String       @db.ObjectId
+  organization   Organization @relation(fields: [organizationId], references: [id])
+  
+  periodYear     Int
+  periodMonth    Int
+
+  // Pre-calculated totals
+  totalOutputVat        Float
+  totalClaimableInputVat Float
+  vatPayable             Float
+
+  // Metadata
+  fiscalizedCount Int
+  excludedCount   Int
+  
+  isFinalized     Boolean      @default(false)
+  lastCalculated  DateTime     @default(now())
+
+  exports         VatExportLog[]
+
+  @@unique([organizationId, periodYear, periodMonth])
+}
+
+model VatExportLog {
+  id            String     @id @default(auto()) @map("_id") @db.ObjectId
+  summaryId     String     @db.ObjectId
+  summary       VatSummary @relation(fields: [summaryId], references: [id])
+  
+  userId        String     @db.ObjectId
+  fileFormat    String     // PDF, CSV
+  s3FileUrl     String
+  exportedAt    DateTime   @default(now())
+}
+
+// ---------------------------------------------------------
+// --- SYSTEM CONFIGURATION ---
+// ---------------------------------------------------------
+
+model SystemConfig {
+  id                      String @id @default(auto()) @map("_id") @db.ObjectId
+  standardVatPercentage   Float  @default(7.5)
+  zeroRatedPercentage     Float  @default(0.0)
+}

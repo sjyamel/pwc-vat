@@ -1,0 +1,344 @@
+{
+    "info": {
+        "name": "PwC VAT Calculator API",
+        "description": "API documentation for the Invoice Tracker and VAT Calculator system.",
+        "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+    },
+    "item": [
+        {
+            "name": "Auth",
+            "item": [
+                {
+                    "name": "Login",
+                    "request": {
+                        "method": "POST",
+                        "header": [],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n    \"email\": \"user@example.com\",\n    \"password\": \"password123\"\n}",
+                            "options": {
+                                "raw": {
+                                    "language": "json"
+                                }
+                            }
+                        },
+                        "url": {
+                            "raw": "{{baseUrl}}/auth/login",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "auth",
+                                "login"
+                            ]
+                        },
+                        "description": "Authenticate a user and return a JWT token.\n\n**Input Fields:**\n- `email` (string, required): User's email address.\n- `password` (string, required): User's password (min 8 chars)."
+                    },
+                    "response": [
+                        {
+                            "name": "Success",
+                            "originalRequest": {},
+                            "status": "OK",
+                            "code": 200,
+                            "_postman_previewlanguage": "json",
+                            "header": [],
+                            "body": "{\n    \"message\": \"Login successful\",\n    \"token\": \"jwt_token_here\"\n}"
+                        }
+                    ]
+                },
+                {
+                    "name": "Register",
+                    "request": {
+                        "method": "POST",
+                        "header": [],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n    \"name\": \"John Doe\",\n    \"email\": \"john@example.com\",\n    \"phone\": \"08012345678\",\n    \"gender\": \"Male\",\n    \"password\": \"password123\",\n    \"role\": \"USER\",\n    \"rank\": \"Manager\"\n}",
+                            "options": {
+                                "raw": {
+                                    "language": "json"
+                                }
+                            }
+                        },
+                        "url": {
+                            "raw": "{{baseUrl}}/auth/register",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "auth",
+                                "register"
+                            ]
+                        },
+                        "description": "Register a new user.\n\n**Input Fields:**\n- `name` (string, required): Full name.\n- `email` (string, required): Email address.\n- `phone` (string, required): Phone number.\n- `gender` (string, required): Gender.\n- `password` (string, required): Password (min 8 chars).\n- `role` (enum, required): User role (e.g., 'USER', 'ADMIN').\n- `rank` (string, required): User rank."
+                    },
+                    "response": []
+                },
+                {
+                    "name": "Get Profile",
+                    "request": {
+                        "method": "GET",
+                        "header": [
+                            {
+                                "key": "Authorization",
+                                "value": "Bearer {{token}}",
+                                "type": "text"
+                            }
+                        ],
+                        "url": {
+                            "raw": "{{baseUrl}}/auth/profile",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "auth",
+                                "profile"
+                            ]
+                        },
+                        "description": "Get the authenticated user's profile."
+                    },
+                    "response": []
+                }
+            ]
+        },
+        {
+            "name": "Invoices",
+            "item": [
+                {
+                    "name": "Create Invoice",
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Authorization",
+                                "value": "Bearer {{token}}",
+                                "type": "text"
+                            }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n  \"organizationId\": \"65d4...\",\n  \"type\": \"SALES\",\n  \"invoiceNumber\": \"INV-001\",\n  \"netAmount\": 100.00,\n  \"vatAmount\": 7.50,\n  \"totalPayable\": 107.50,\n  \"items\": [\n    {\n      \"description\": \"Consulting Services\",\n      \"quantity\": 1,\n      \"unitPrice\": 100.00,\n      \"vatCategory\": \"STANDARD\",\n      \"vatRate\": 0.075\n    }\n  ]\n}",
+                            "options": {
+                                "raw": {
+                                    "language": "json"
+                                }
+                            }
+                        },
+                        "url": {
+                            "raw": "{{baseUrl}}/v1/invoices",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "v1",
+                                "invoices"
+                            ]
+                        },
+                        "description": "Create a new invoice and automatically submit it for fiscalization.\n\n**Input Fields:**\n- `organizationId` (string, required): ID of the organization.\n- `type` (enum, required): 'SALES' or 'PURCHASE'.\n- `invoiceNumber` (string, required): Unique invoice number.\n- `netAmount` (number, required): Taxable amount.\n- `vatAmount` (number, required): DNA amount.\n- `totalPayable` (number, required): Total including VAT.\n- `items` (array, required): List of line items.\n  - `description` (string)\n  - `quantity` (number)\n  - `unitPrice` (number)\n  - `vatCategory` (enum): 'STANDARD', 'ZERO_RATED', 'EXEMPT'.\n  - `vatRate` (number)"
+                    },
+                    "response": []
+                },
+                {
+                    "name": "List Invoices",
+                    "request": {
+                        "method": "GET",
+                        "header": [],
+                        "url": {
+                            "raw": "{{baseUrl}}/v1/invoices?status=FISCALIZED",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "v1",
+                                "invoices"
+                            ],
+                            "query": [
+                                {
+                                    "key": "status",
+                                    "value": "FISCALIZED",
+                                    "description": "Optional filter by status (DRAFT, PENDING, FISCALIZED, CANCELLED, REJECTED)"
+                                }
+                            ]
+                        },
+                        "description": "Retrieve a list of invoices, optionally filtered by status."
+                    },
+                    "response": []
+                },
+                {
+                    "name": "Submit Invoice",
+                    "request": {
+                        "method": "POST",
+                        "header": [],
+                        "url": {
+                            "raw": "{{baseUrl}}/v1/invoices/:id/submit",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "v1",
+                                "invoices",
+                                ":id",
+                                "submit"
+                            ],
+                            "variable": [
+                                {
+                                    "key": "id",
+                                    "value": "",
+                                    "description": "Invoice ID"
+                                }
+                            ]
+                        },
+                        "description": "Manually submit an existing invoice for fiscalization."
+                    },
+                    "response": []
+                },
+                {
+                    "name": "List Fiscalized",
+                    "request": {
+                        "method": "GET",
+                        "header": [],
+                        "url": {
+                            "raw": "{{baseUrl}}/v1/invoices/fiscalized",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "v1",
+                                "invoices",
+                                "fiscalized"
+                            ]
+                        },
+                        "description": "Retrieve only fiscalized invoices."
+                    },
+                    "response": []
+                }
+            ]
+        },
+        {
+            "name": "VAT",
+            "item": [
+                {
+                    "name": "Get Summary",
+                    "request": {
+                        "method": "GET",
+                        "header": [
+                            {
+                                "key": "Authorization",
+                                "value": "Bearer {{token}}",
+                                "type": "text"
+                            }
+                        ],
+                        "url": {
+                            "raw": "{{baseUrl}}/v1/vat/summary?year=2024&month=2",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "v1",
+                                "vat",
+                                "summary"
+                            ],
+                            "query": [
+                                {
+                                    "key": "year",
+                                    "value": "2024",
+                                    "description": "Tax year"
+                                },
+                                {
+                                    "key": "month",
+                                    "value": "2",
+                                    "description": "Tax month (1-12)"
+                                }
+                            ]
+                        },
+                        "description": "Get VAT summary for the authenticated user's organization."
+                    },
+                    "response": []
+                },
+                {
+                    "name": "Get Breakdown",
+                    "request": {
+                        "method": "GET",
+                        "header": [
+                            {
+                                "key": "Authorization",
+                                "value": "Bearer {{token}}",
+                                "type": "text"
+                            }
+                        ],
+                        "url": {
+                            "raw": "{{baseUrl}}/v1/vat/breakdown?year=2024&month=2",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "v1",
+                                "vat",
+                                "breakdown"
+                            ],
+                            "query": [
+                                {
+                                    "key": "year",
+                                    "value": "2024"
+                                },
+                                {
+                                    "key": "month",
+                                    "value": "2"
+                                }
+                            ]
+                        },
+                        "description": "Get breakdown of invoices for the authenticated user's organization."
+                    },
+                    "response": []
+                },
+                {
+                    "name": "Export VAT",
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Authorization",
+                                "value": "Bearer {{token}}",
+                                "type": "text"
+                            }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n    \"year\": 2024,\n    \"month\": 2,\n    \"format\": \"PDF\"\n}",
+                            "options": {
+                                "raw": {
+                                    "language": "json"
+                                }
+                            }
+                        },
+                        "url": {
+                            "raw": "{{baseUrl}}/v1/vat/export",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "v1",
+                                "vat",
+                                "export"
+                            ]
+                        },
+                        "description": "Trigger a background export of the VAT report.\n\n**Input Fields:**\n- `year` (number, required)\n- `month` (number, required)\n- `format` (enum, required): 'PDF' or 'CSV'."
+                    },
+                    "response": []
+                }
+            ]
+        }
+    ],
+    "variable": [
+        {
+            "key": "baseUrl",
+            "value": "http://localhost:3000",
+            "type": "string"
+        },
+        {
+            "key": "token",
+            "value": "",
+            "type": "string"
+        }
+    ]
+}
