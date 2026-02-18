@@ -26,7 +26,7 @@ export const VatCategory = {
 }
 
 export const vatRate = {
-  STANDARD: 0.075,
+  STANDARD: 7.5,
   ZERO_RATED: 0.0,
   EXEMPT: 0.0,
 }

@@ -2,6 +2,7 @@
 import { Injectable, BadRequestException } from '@nestjs/common';
 import { Invoice, InvoiceItem, InvoiceStatus, ClaimableStatus } from '@prisma/client';
 import { randomUUID } from 'crypto';
+import { AIResponse } from '../utils/magicAI';
 
 import { VatCategory, vatRate } from "../@nest/usual";
 
@@ -20,21 +21,33 @@ export class GeminiService {
             throw new BadRequestException(`Invoice math does not match (Net + VAT != Total). Calculated: ${calculatedTotal}, Provided: ${invoice.totalPayable}`);
         }
 
-        // 2. Categorize Items & Fiscalize
-        const fiscalizedItems = invoice.items.map(item => {
-            let category = VatCategory.STANDARD;
-            let rate = vatRate.STANDARD;
+        // 2. Categorize Items using AI
+        const itemDescriptions = invoice.items.map(i => i.description).join(', ');
+        const prompt = `
+            You are a VAT expert. Categorize the following invoice items into one of these VAT categories: 'STANDARD', 'ZERO_RATED', 'EXEMPT'.
+            
+            Items: ${itemDescriptions}
 
-            // Ensure description exists
-            const desc = (item.description || '').toLowerCase();
+            Respond strictly with a JSON array of strings representing the category for each item in the same order. 
+            Example: ["STANDARD", "ZERO_RATED", "STANDARD"]
+            Do not include any markdown formatting or explanation.
+        `;
 
-            if (desc.includes('zero') || desc.includes('0%')) {
-                category = VatCategory.ZERO_RATED;
-                rate = vatRate.ZERO_RATED;
-            } else if (desc.includes('exempt')) {
-                category = VatCategory.EXEMPT;
-                rate = vatRate.EXEMPT;
-            }
+        let categories: string[] = [];
+        try {
+            const aiResponse = await AIResponse(prompt);
+            // Clean response if it contains markdown code blocks
+            const cleanResponse = aiResponse.replace(/```json/g, '').replace(/```/g, '').trim();
+            categories = JSON.parse(cleanResponse);
+        } catch (error) {
+            console.error("AI Categorization failed, defaulting to STANDARD", error);
+            // Fallback to STANDARD for all if AI fails
+            categories = invoice.items.map(() => 'STANDARD');
+        }
+
+        const fiscalizedItems = invoice.items.map((item, index) => {
+            let category = VatCategory[categories[index]] || VatCategory.STANDARD;
+            let rate = vatRate[category] || vatRate.STANDARD;
 
             return {
                 ...item,
@@ -47,14 +60,35 @@ export class GeminiService {
             ? VatCategory.STANDARD
             : (fiscalizedItems[0]?.vatCategory || VatCategory.STANDARD);
 
+        const irn = randomUUID();
+        const fiscalizedAt = new Date();
+
+        // 3. Generate QR Code
+        const qrData = JSON.stringify({
+            irn,
+            total: invoice.totalPayable,
+            date: fiscalizedAt.toISOString(),
+            vat: invoice.vatAmount,
+            orgId: invoice.organizationId
+        });
+
+        let qrCodeUrl = '';
+        try {
+            const QRCode = require('qrcode');
+            qrCodeUrl = await QRCode.toDataURL(qrData);
+        } catch (err) {
+            console.error("QR Code generation failed", err);
+        }
+
         return {
             status: InvoiceStatus.FISCALIZED,
-            irn: randomUUID(),
-            fiscalizedAt: new Date(),
+            irn,
+            fiscalizedAt,
             vatCategory: mainCategory,
             claimableStatus: ClaimableStatus.CLAIMABLE,
             items: fiscalizedItems,
-            rejectionReason: null
+            rejectionReason: null,
+            qrCodeUrl
         };
     }
 }
