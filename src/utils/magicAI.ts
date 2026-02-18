@@ -4,7 +4,7 @@ import { GoogleGenerativeAI } from "@google/generative-ai";
 
 // console.log(process.env.GOOGLEAIKEY);
 export const AIResponse = async (text: string) => {
-	const apiKey: any = "AIzaSyBkbMngW7XDlbRVpo7JxHnc9IqU1YEOXNI";
+	const apiKey: any = process.env.GOOGLEAIKEY;
 	const genAI = new GoogleGenerativeAI(apiKey);
 	const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
 
